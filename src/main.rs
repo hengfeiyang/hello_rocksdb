@@ -1,4 +1,4 @@
-use rocksdb::{ColumnFamilyDescriptor, Options, DB, IteratorMode};
+use rocksdb::{ColumnFamilyDescriptor, Options, DB, IteratorMode, LogLevel};
 use std::{sync::Arc, thread::sleep};
 use sysinfo::{NetworkExt, NetworksExt, ProcessExt, System, SystemExt};
 
@@ -9,6 +9,8 @@ async fn main() {
     let path = "./data/_path_for_rocksdb_storage_with_cf_";
     let mut cf_opts = Options::default();
     cf_opts.set_max_write_buffer_number(16);
+    cf_opts.set_keep_log_file_num(7);
+    cf_opts.set_log_level(LogLevel::Warn);
     let cf = ColumnFamilyDescriptor::new("cf1", cf_opts);
 
     let mut db_opts = Options::default();
@@ -16,7 +18,14 @@ async fn main() {
     db_opts.create_if_missing(true);
     let db = DB::open_cf_descriptors(&db_opts, path, vec![cf]).unwrap();
 
+
     let cf_handle = db.cf_handle("cf1").unwrap();
+    match db.get_cf(&cf_handle, b"my key") {
+        Ok(Some(value)) => println!("retrieved value {}", String::from_utf8(value).unwrap()),
+        Ok(None) => println!("value not found"),
+        Err(e) => println!("operational problem encountered: {}", e),
+    }
+    
     db.put_cf(&cf_handle, b"my key", b"my value").unwrap();
     db.put_cf(&cf_handle, b"my key22", b"my value22").unwrap();
     db.put_cf(&cf_handle, b"my key21", b"my value21").unwrap();
@@ -26,12 +35,9 @@ async fn main() {
         println!("key: {}",String::from_utf8(key.to_vec()).unwrap());
         println!("val: {}",String::from_utf8(value.to_vec()).unwrap());
     }
-    match db.get_cf(&cf_handle, b"my key") {
-        Ok(Some(value)) => println!("retrieved value {}", String::from_utf8(value).unwrap()),
-        Ok(None) => println!("value not found"),
-        Err(e) => println!("operational problem encountered: {}", e),
-    }
-    db.delete_cf(&cf_handle, b"my key").unwrap();
+    // db.delete_cf(&cf_handle, b"my key").unwrap();
+    db.drop_cf("cf1").unwrap();
+    db.flush().unwrap();
 }
 
 async fn batch_put(db: Arc<DB>, n: i32, keys: i32) {
