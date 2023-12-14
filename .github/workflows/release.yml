@@ -89,7 +89,7 @@ jobs:
           override: true
 
       - name: Output package versions
-        run: protoc --version ; cargo version ; rustc --version ; gcc --version ; g++ --version
+        run: cargo version ; rustc --version ; gcc --version ; g++ --version
 
       - name: Print rustc cfg
         run: rustc --print cfg
